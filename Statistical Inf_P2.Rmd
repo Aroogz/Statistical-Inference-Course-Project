@@ -1,0 +1,102 @@
+---
+title: "Statistica Inf. P2"
+author: "Aroogz"
+date: "November 9, 2016"
+output: html_document
+---
+
+## SYNOPSIS: will analyse the `ToothGrowth` dataset elucidating on the effect of `Supp` and `dose` variables on the `len`.
+
+## Preparing the Workspace
+```{r preparing workspace, message=FALSE}
+rm(list = ls())
+if ("ggplot2" %in% row.names(installed.packages()) == FALSE){install.packages("ggplot2")}
+if ("grid" %in% row.names(installed.packages()) == FALSE){install.packages("grid")}
+if ("gridExtra" %in% row.names(installed.packages()) == FALSE){install.packages("gridExtra")}
+library(ggplot2); library(grid); library(gridExtra)
+```
+
+## 2. The analysis of the `ToothGrowth` dataset
+
+The dataset consists of 60 rows and 3 columns. It looks intuitive that the observations are paired by the `supp` variable so we would consider this case.
+
+### Visualising the data showing some plots
+```{r dist according to supp}
+ggplot(data = ToothGrowth)+
+  geom_boxplot(mapping = aes(x=supp, y= len) ) +
+  labs(title= "comparing the distributions for the two supplements disregarding the dose")
+```
+Here we observe the distribution of the `len` variable with respect to the `supp` variable
+
+```{r}
+# var explained by dose, grid by supp
+ggplot(ToothGrowth)+
+  geom_point(mapping = aes(x=factor(dose), y=len, col= factor(dose)))+
+  facet_grid(supp~.)+
+  labs(title= "variatons explained by the dosage for each of the supplement")
+```
+It is obvious from the above, the effect of the `dose` on the outcome of the `len` for both categories of `supp` variable
+
+```{r vis. all factors}
+#exploring variations due to all factors
+ggplot(ToothGrowth)+
+  geom_point(mapping = aes(x=factor(dose), y=len, col= supp))+
+  labs(title= "variatons explained by the dose and supplement")
+```
+from the above plot, we observe an increase in the OJ `supp` for the first two dose (0.5 and 1). It becomes unclear the effect of the different supplements
+### Assuming paired observation
+```{r loading data}
+data("ToothGrowth"); n <- nrow(ToothGrowth)/2
+
+#divison alongn supp variable
+g1 <- ToothGrowth$len[1:30]; g2 <- ToothGrowth$len[31:60]
+
+# showing the confidence interval (Assuming paired observations)
+mn <- mean(g2-g1); s <- sd(g2-g1)
+mn + c(-1, 1)*qt(0.975, n-1)*s/sqrt(n)
+```
+we see the interval (95% confidence interval) here does not contain zero which implies that we could confidently reject the hypothesis of a zero mean difference. This implies that the variability due to the `supp` variable is indeed significant and could not have happened by chance.
+### Assuming unpaired observation
+```{r unpaired}
+t.test(x= g2, y = g1, paired = FALSE)$conf
+```
+the unpaired test however shows an interval that contains zero and so we do not have enough evidence to reject the hypothesis of a 0 mean difference
+
+### implementing the permutation method
+```{r permutation}
+#implement the permutation test
+cal.diff <- function(value, group){
+  # function to get the mean different for a list
+  # differentiated by groups (another column)
+  divs <- levels(group)
+  meandiff <- mean(value[group == divs[1] ]) - mean(value[group == divs[2]])
+  meandiff
+}
+observation <- cal.diff(ToothGrowth$len, ToothGrowth$supp)
+permutations <- NULL
+for (i in 1:1000){
+  permutations <- c(permutations, cal.diff(ToothGrowth$len, 
+                                           sample(ToothGrowth$supp)))
+}
+print(paste("the observed mean difference: ", observation))
+```
+
+
+```{r}
+### check fraction of permutation greater than the observation
+mean(permutations > observation)
+```
+we see a low percentage of the permutations greater than the observation
+```{r permutations interval}
+quantile(permutations, c(0.025,0.975))
+```
+we see it is highly unlikely to have gotten this value if it were left to randomness.
+```{r obs. p-value}
+quantile(permutations, 0.95)
+```
+the 95% quantile is also less than the observation indication our observation is very unlikely due to chance. hence there is a difference in the `len` is associated with the `supp`. Particularly, the mean difference is of the `len` is not zero in favour of the `OJ` `supp` category.
+```{r clear, echo=FALSE}
+rm(list = ls())
+```
+
+&copy; Aroge
